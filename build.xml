@@ -68,10 +68,12 @@
 			<compilerarg value="-Xlint:unchecked" />
 			<classpath refid="project.classpath" />
 		</javac>
+		<!-- 
 		<copy todir="${classes}" overwrite="true">
 			<fileset dir="${resources}">
 			</fileset>
 		</copy>
+		-->
 	</target>
 
 	<target name="jar.all" depends="jar.core" />
