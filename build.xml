@@ -41,6 +41,10 @@
 		<fileset dir="${external.jars}">
 			<include name="*.jar" />
 		</fileset>
+        <!-- include maven generated path. -->
+        <fileset dir="target/lib">
+            <include name="*.jar" />
+        </fileset>
     </path>
 
 	<!-- special version of copy dependencies; core is the only project that doesn't depend on core. -->
@@ -68,7 +72,7 @@
 			<compilerarg value="-Xlint:unchecked" />
 			<classpath refid="project.classpath" />
 		</javac>
-		<!-- 
+		<!--
 		<copy todir="${classes}" overwrite="true">
 			<fileset dir="${resources}">
 			</fileset>
