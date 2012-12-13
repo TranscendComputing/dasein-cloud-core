@@ -34,6 +34,7 @@
 		<mkdir dir="${lib}" />
 		<mkdir dir="${external}" />
 		<mkdir dir="${external.jars}" />
+		<mkdir dir="target/lib" />
 	</target>
 
     <path id="project.classpath">
