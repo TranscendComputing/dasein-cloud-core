@@ -42,6 +42,7 @@ import org.dasein.cloud.identity.ServiceAction;
  * @version 2012-07 Added new launch method with {@link VMLaunchOptions} as well as better meta-data
  * @version 2013.01 Added meta-data for defining kernel and ramdisk image requirements (Issue #7)
  * @version 2013.01 Added status listing (Issue #4)
+ * @version 2013.02 Deprecated old requirements meta data for shell key and password and added new ones with platform params (issue #37)
  * @since unknown
  */
 @SuppressWarnings("UnusedDeclaration")
@@ -125,6 +126,17 @@ public interface VirtualMachineSupport extends AccessControlledService {
     public abstract @Nonnull String getConsoleOutput(@Nonnull String vmId) throws InternalException, CloudException;
 
     /**
+     * Provides a number between 0 and 100 describing what percentage of the standard VM bill rate should be charged for
+     * virtual machines in the specified state. 0 means that the VM incurs no charges while in the specified state, 100
+     * means it incurs full charges, and a number in between indicates the percent discount that applies.
+     * @param state the VM state being checked
+     * @return the discount factor for VMs in the specified state
+     * @throws InternalException an error occurred within the Dasein Cloud API implementation
+     * @throws CloudException an error occurred within the cloud provider
+     */
+    public abstract @Nonnegative int getCostFactor(@Nonnull VmState state) throws InternalException, CloudException;
+
+    /**
      * Provides the maximum number of virtual machines that may be launched in this region for the current account.
      * @return the maximum number of launchable VMs or -1 for unlimited or -2 for unknown
      * @throws CloudException an error occurred fetching the limits from the cloud provider
@@ -194,12 +206,23 @@ public interface VirtualMachineSupport extends AccessControlledService {
     public abstract @Nonnull Requirement identifyImageRequirement(@Nonnull ImageClass cls) throws CloudException, InternalException;
 
     /**
+     * Indicates the degree to which specifying a user name and password at launch is required for a Unix operating system.
+     * @return the requirements level for specifying a user name and password at launch
+     * @throws CloudException an error occurred in the cloud identifying this requirement
+     * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
+     * @deprecated Use {@link #identifyPasswordRequirement(Platform)}
+     */
+    @Deprecated
+    public abstract @Nonnull Requirement identifyPasswordRequirement() throws CloudException, InternalException;
+
+    /**
      * Indicates the degree to which specifying a user name and password at launch is required.
+     * @param platform the platform for which password requirements are being sought
      * @return the requirements level for specifying a user name and password at launch
      * @throws CloudException an error occurred in the cloud identifying this requirement
      * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
      */
-    public abstract @Nonnull Requirement identifyPasswordRequirement() throws CloudException, InternalException;
+    public abstract @Nonnull Requirement identifyPasswordRequirement(Platform platform) throws CloudException, InternalException;
 
     /**
      * Indicates whether or not a root volume product must be specified when launching a virtual machine.
@@ -210,12 +233,23 @@ public interface VirtualMachineSupport extends AccessControlledService {
     public abstract @Nonnull Requirement identifyRootVolumeRequirement() throws CloudException, InternalException;
 
     /**
+     * Indicates the degree to which specifying a shell key at launch is required for a Unix operating system.
+     * @return the requirements level for shell key support at launch
+     * @throws CloudException an error occurred in the cloud identifying this requirement
+     * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
+     * @deprecated Use {@link #identifyShellKeyRequirement(Platform)}
+     */
+    @Deprecated
+    public abstract @Nonnull Requirement identifyShellKeyRequirement() throws CloudException, InternalException;
+
+    /**
      * Indicates the degree to which specifying a shell key at launch is required.
+     * @param platform the target platform for which you are testing
      * @return the requirements level for shell key support at launch
      * @throws CloudException an error occurred in the cloud identifying this requirement
      * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
      */
-    public abstract @Nonnull Requirement identifyShellKeyRequirement() throws CloudException, InternalException;
+    public abstract @Nonnull Requirement identifyShellKeyRequirement(Platform platform) throws CloudException, InternalException;
 
     /**
      * Indicates the degree to which static IP addresses are required when launching a VM.
@@ -419,14 +453,28 @@ public interface VirtualMachineSupport extends AccessControlledService {
 
     /**
      * Shuts down a virtual machine with the capacity to boot it back up at a later time. The contents of volumes
-     * associated with this virtual machine are preserved, but the memory is not.
+     * associated with this virtual machine are preserved, but the memory is not. This method should first
+     * attempt a nice shutdown, then force the shutdown.
      * @param vmId the virtual machine to be shut down
      * @throws InternalException an error occurred within the Dasein Cloud API implementation
      * @throws CloudException an error occurred within the cloud provider
      * @throws OperationNotSupportedException starting/stopping is not supported for this virtual machine
      * @see #start(String)
+     * @see #stop(String,boolean)
      */
     public abstract void stop(@Nonnull String vmId) throws InternalException, CloudException;
+
+    /**
+     * Shuts down a virtual machine with the capacity to boot it back up at a later time. The contents of volumes
+     * associated with this virtual machine are preserved, but the memory is not.
+     * @param vmId the virtual machine to be shut down
+     * @param force whether or not to force a shutdown (kill the power)
+     * @throws InternalException an error occurred within the Dasein Cloud API implementation
+     * @throws CloudException an error occurred within the cloud provider
+     * @throws OperationNotSupportedException starting/stopping is not supported for this virtual machine
+     * @see #start(String)
+     */
+    public abstract void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException;
 
     /**
      * Identifies whether or not this cloud supports hypervisor-based analytics around usage and performance.
@@ -502,4 +550,14 @@ public interface VirtualMachineSupport extends AccessControlledService {
      * @see #pause(String)
      */
     public abstract void unpause(@Nonnull String vmId) throws CloudException, InternalException;
+
+    /**
+     * Updates meta-data for a virtual machine with the new values. It will not overwrite any value that currently
+     * exists unless it appears in the tags you submit.
+     * @param vmId the virtual machine to update
+     * @param tags the meta-data tags to set
+     * @throws CloudException an error occurred within the cloud provider
+     * @throws InternalException an error occurred within the Dasein Cloud API implementation
+     */
+    public abstract void updateTags(@Nonnull String vmId, @Nonnull Tag ... tags) throws CloudException, InternalException;
 }

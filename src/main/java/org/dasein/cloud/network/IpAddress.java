@@ -25,15 +25,22 @@ import javax.annotation.Nullable;
 /**
  * Represents an IP address that in some way belongs to a cloud account holder.
  * @author George Reese @ enStratus (http://www.enstratus.com)
+ * @version 2013.02 added method for fetching raw address (issue #38)
+ * @version 2013.02 added providerVlanId field (issue #23)
+ * @version 2013.02 added Networkable interface
+ * @version 2013.02 added reserved attribute (issue #28)
+ * @since unknown
  */
-public class IpAddress implements Comparable<IpAddress> {
+public class IpAddress implements Networkable, Comparable<IpAddress> {
     private String      address;
     private AddressType addressType;
     private boolean     forVlan;
     private String      providerNetworkInterfaceId;
     private String      providerIpAddressId;
     private String      providerLoadBalancerId;
+    private String      providerVlanId;
     private String      regionId;
+    private boolean     reserved;
     private String      serverId;
     private IPVersion   version;
     
@@ -76,11 +83,19 @@ public class IpAddress implements Comparable<IpAddress> {
     
     /**
      * @return the IP address for this {@link IpAddress}
+     * @deprecated Use {@link #getRawAddress()}
      */
+    @Deprecated
     public @Nonnull String getAddress() {
         return address;
     }
-    
+
+    /**
+     * @return the raw IP address for this static IP
+     */
+    public @Nonnull RawAddress getRawAddress() {
+        return new RawAddress(address, version);
+    }
     /**
      * @return the cloud provider's ID for uniquely identifying this address
      */
@@ -122,11 +137,11 @@ public class IpAddress implements Comparable<IpAddress> {
     public boolean isAssigned() {
         return (serverId != null || providerLoadBalancerId != null);
     }
-    
+
     public void setAddress(@Nonnull String address) {
         this.address = address;
     }
-    
+
     public void setIpAddressId(@Nonnull String ipAddressId) {
         this.providerIpAddressId = ipAddressId;
     }
@@ -173,5 +188,21 @@ public class IpAddress implements Comparable<IpAddress> {
 
     public void setVersion(IPVersion version) {
         this.version = version;
+    }
+
+    public String getProviderVlanId() {
+        return providerVlanId;
+    }
+
+    public void setProviderVlanId(String providerVlanId) {
+        this.providerVlanId = providerVlanId;
+    }
+
+    public boolean isReserved() {
+        return reserved;
+    }
+
+    public void setReserved(boolean reserved) {
+        this.reserved = reserved;
     }
 }

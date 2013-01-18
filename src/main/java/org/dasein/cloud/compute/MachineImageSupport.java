@@ -31,6 +31,7 @@ import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.Tag;
 import org.dasein.cloud.identity.ServiceAction;
 
 /**
@@ -42,6 +43,7 @@ import org.dasein.cloud.identity.ServiceAction;
  * @version 2013.01 Added support for ramdisk and kernel images (Issue #7)
  * @version 2013.01 Added synchronous bundling methods (Issue #12)
  * @version 2013.01 Added a resource lister (Issue #4)
+ * @version 2013.02 Added method to identify term for custom images (issue #34)
  * @since unknown
  */
 @SuppressWarnings("UnusedDeclaration")
@@ -155,15 +157,23 @@ public interface MachineImageSupport extends AccessControlledService {
      * @return the term used by the provider to describe a machine image
      * @deprecated Use {@link #getProviderTermForImage(Locale, ImageClass)}
      */
+    @Deprecated
     public abstract @Nonnull String getProviderTermForImage(@Nonnull Locale locale);
 
     /**
-     * Provides the cloud provider specific term for a machine image.
-     * @param locale the locale for which the term should be translated
+     * Provides the cloud provider specific term for a public image of the specified image class.
      * @param cls the image class for the desired type
-     * @return the term used by the provider to describe a machine image
+     * @return the term used by the provider to describe a public image
      */
     public abstract @Nonnull String getProviderTermForImage(@Nonnull Locale locale, @Nonnull ImageClass cls);
+
+    /**
+     * Provides the cloud provider specific term for a custom image of the specified image class.
+     * @param locale the locale for which the term should be translated
+     * @param cls the image class for the desired type
+     * @return the term used by the provider to describe a custom image
+     */
+    public abstract @Nonnull String getProviderTermForCustomImage(@Nonnull Locale locale, @Nonnull ImageClass cls);
 
     /**
      * Indicates whether or not a public image library of {@link ImageClass#MACHINE} is supported.
@@ -323,16 +333,26 @@ public interface MachineImageSupport extends AccessControlledService {
      */
     public abstract @Nonnull MachineImage registerImageBundle(@Nonnull ImageCreateOptions options) throws CloudException, InternalException;
 
-    /**
-     * Permanently removes all traces of the target image. This method should remove both the image record in the cloud
-     * and any cloud storage location in which the image resides for staging.
-     * @param providerImageId the unique ID of the image to be removed
-     * @throws CloudException an error occurred with the cloud provider
-     * @throws InternalException a local error occurred in the Dasein Cloud implementation
-     */
-    public abstract void remove(@Nonnull String providerImageId) throws CloudException, InternalException;
+  /**
+   * Permanently removes all traces of the target image. This method should remove both the image record in the cloud
+   * and any cloud storage location in which the image resides for staging.
+   * @param providerImageId the unique ID of the image to be removed
+   * @throws CloudException an error occurred with the cloud provider
+   * @throws InternalException a local error occurred in the Dasein Cloud implementation
+   */
+  public abstract void remove(@Nonnull String providerImageId) throws CloudException, InternalException;
 
-    /**
+  /**
+   * Permanently removes all traces of the target image. This method should remove both the image record in the cloud
+   * and any cloud storage location in which the image resides for staging.
+   * @param providerImageId the unique ID of the image to be removed
+   * @param checkState if the state of the machine image should be checked first
+   * @throws CloudException an error occurred with the cloud provider
+   * @throws InternalException a local error occurred in the Dasein Cloud implementation
+   */
+  public abstract void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException;
+
+  /**
      * Removes ALL specific account shares for the specified image. NOTE THAT THIS METHOD WILL NOT THROW AN EXCEPTION
      * WHEN IMAGE SHARING IS NOT SUPPORTED. IT IS A NO-OP IN THAT SCENARIO.
      * @param providerImageId the unique ID of the image to be unshared
@@ -467,5 +487,15 @@ public interface MachineImageSupport extends AccessControlledService {
      * @throws InternalException an error occurred within the Dasein cloud implementation
      */
     public abstract boolean supportsPublicLibrary(@Nonnull ImageClass cls) throws CloudException, InternalException;
+
+    /**
+     * Updates meta-data for a image with the new values. It will not overwrite any value that currently
+     * exists unless it appears in the tags you submit.
+     * @param imageId the image to update
+     * @param tags the meta-data tags to set
+     * @throws CloudException an error occurred within the cloud provider
+     * @throws InternalException an error occurred within the Dasein Cloud API implementation
+     */
+    public abstract void updateTags(@Nonnull String imageId, @Nonnull Tag... tags) throws CloudException, InternalException;
 
 }

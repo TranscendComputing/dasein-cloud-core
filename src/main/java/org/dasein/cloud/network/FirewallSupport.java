@@ -28,17 +28,25 @@ import org.dasein.cloud.AccessControlledService;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
+import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.identity.ServiceAction;
 
+import javax.annotation.Nonnegative;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 /**
  * <p>
- * Operations on whatever concept the underlying cloud uses to regulate network
- * traffic into a server or group of servers.
+ * Operations on whatever concept the underlying cloud uses to regulate network traffic into and out of a
+ * server or group of servers.
  * </p>
  * 
  * @author George Reese @ enStratus (http://www.enstratus.com)
  * @version 2013.01 Added better permission support and firewall rule id support (Issue #14)
+ * @version 2013.02 Added support for rule precedence (issue #33)
+ * @version 2013.02 Added specifying both source and destination as {@link RuleTarget} objects (issue #26)
+ * @version 2013.02 Added meta-data for source endpoint types (issue #27)
  * @since unknown
  */
 public interface FirewallSupport extends AccessControlledService {
@@ -52,7 +60,7 @@ public interface FirewallSupport extends AccessControlledService {
     static public final ServiceAction REVOKE               = new ServiceAction("FW:REVOKE");
 
     /**
-     * Provides ALLOW/INGRESS authorization to all destinations behing this firewall for the specified rule.
+     * Provides ALLOW/INGRESS authorization to all destinations behind this firewall for the specified rule.
      * Any call to this method should result in an override of any previous revocations.
      * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
      * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
@@ -68,6 +76,10 @@ public interface FirewallSupport extends AccessControlledService {
 
     /**
      * Provides positive authorization to all destinations behind this firewall for the specified rule.
+     * The meaning of "source" and "target" is counter-intuitive in this method for EGRESS operations. For the deprecated
+     * authorize methods, source ALWAYS means the thing outside of this firewall and target ALWAYS means the resources being
+     * protected by this firewall. Consequently, the source is the destination for EGRESS rules (but not INGRESS).
+     * To avoid confusion, avoid deprecated versions of this method.
      * Any call to this method should result in an override of any previous revocations.
      * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
      * @param direction the direction of the traffic governing the rule                  
@@ -79,11 +91,16 @@ public interface FirewallSupport extends AccessControlledService {
      * @throws CloudException an error occurred with the cloud provider establishing the rule
      * @throws InternalException an error occurred locally trying to establish the rule
      * @throws OperationNotSupportedException the specified direction, ALLOW rules, or global destinations are not supported
+     * @deprecated Use {@link #authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)}
      */
     public @Nonnull String authorize(@Nonnull String firewallId, @Nonnull Direction direction, @Nonnull String source, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException;
 
     /**
      * Provides positive authorization for the specified firewall rule to global destinations. Any call to this method should
+     * The meaning of "source" and "target" is counter-intuitive in this method for EGRESS operations. For the deprecated
+     * authorize methods, source ALWAYS means the thing outside of this firewall and target ALWAYS means the resources being
+     * protected by this firewall. Consequently, the source is the destination for EGRESS rules (but not INGRESS).
+     * To avoid confusion, avoid deprecated versions of this method.
      * result in an override of any previous revocations.
      * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
      * @param direction the direction of the traffic governing the rule
@@ -96,26 +113,56 @@ public interface FirewallSupport extends AccessControlledService {
      * @throws CloudException an error occurred with the cloud provider establishing the rule
      * @throws InternalException an error occurred locally trying to establish the rule
      * @throws OperationNotSupportedException the specified direction or permission are not supported or global destinations are not supported
+     * @deprecated Use {@link #authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)}
      */
     public @Nonnull String authorize(@Nonnull String firewallId, @Nonnull Direction direction, @Nonnull Permission permission, @Nonnull String source, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException;
 
     /**
      * Provides positive authorization for the specified firewall rule. Any call to this method should
      * result in an override of any previous revocations.
+     * The meaning of "source" and "target" is counter-intuitive in this method for EGRESS operations. For the deprecated
+     * authorize methods, source ALWAYS means the thing outside of this firewall and target ALWAYS means the resources being
+     * protected by this firewall. Consequently, the source is the destination for EGRESS rules (but not INGRESS).
+     * To avoid confusion, avoid deprecated versions of this method.
      * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
      * @param direction the direction of the traffic governing the rule
      * @param permission ALLOW or DENY
      * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
      * @param protocol the protocol (tcp/udp/icmp) supported by this rule
-     * @param destination the destination to specify for this rule
+     * @param target the target to specify for this rule
      * @param beginPort the beginning of the port range to be allowed, inclusive
      * @param endPort the end of the port range to be allowed, inclusive
      * @return the provider ID of the new rule
      * @throws CloudException an error occurred with the cloud provider establishing the rule
      * @throws InternalException an error occurred locally trying to establish the rule
-     * @throws OperationNotSupportedException the specified direction, destination, or permission are not supported
+     * @throws OperationNotSupportedException the specified direction, target, or permission are not supported
+     * @deprecated Use {@link #authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)}
      */
-    public @Nonnull String authorize(@Nonnull String firewallId, @Nonnull Direction direction, @Nonnull Permission permission, @Nonnull String source, @Nonnull Protocol protocol, @Nonnull RuleDestination destination, int beginPort, int endPort) throws CloudException, InternalException;
+    public @Nonnull String authorize(@Nonnull String firewallId, @Nonnull Direction direction, @Nonnull Permission permission, @Nonnull String source, @Nonnull Protocol protocol, @Nonnull RuleTarget target, int beginPort, int endPort) throws CloudException, InternalException;
+
+    /**
+     * Provides positive authorization for the specified firewall rule with the specified precedence. Any call to this method should
+     * result in an override of any previous revocations. For this method, the source endpoint is the source for the traffic and
+     * the destination endpoint is where the traffic terminates. For INGRESS rules, the destination endpoint will thus be
+     * resources protected by this firewall and for EGRESS rules the destination endpoint is one or more external resources.
+     * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
+     * @param direction the direction of the traffic governing the rule
+     * @param permission ALLOW or DENY
+     * @param sourceEndpoint the source endpoint for this rule
+     * @param protocol the protocol (tcp/udp/icmp) supported by this rule
+     * @param destinationEndpoint the destination endpoint to specify for this rule
+     * @param beginPort the beginning of the port range to be allowed, inclusive
+     * @param endPort the end of the port range to be allowed, inclusive
+     * @param precedence the precedence of this rule with respect to others
+     * @return the provider ID of the new rule
+     * @throws CloudException an error occurred with the cloud provider establishing the rule
+     * @throws InternalException an error occurred locally trying to establish the rule
+     * @throws OperationNotSupportedException the specified direction, target, or permission are not supported
+     */
+    public @Nonnull String authorize(@Nonnull String firewallId, @Nonnull Direction direction, @Nonnull Permission permission, @Nonnull RuleTarget sourceEndpoint, @Nonnull Protocol protocol, @Nonnull RuleTarget destinationEndpoint, int beginPort, int endPort, @Nonnegative int precedence) throws CloudException, InternalException;
+
+    //Our addition
+    public @Nonnull String authorize(@Nonnull String firewallId, @Nullable String ingressFirewallId, @Nullable String ingressFirewallOwnerId, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException;
 
     /**
      * Creates a new firewall with the specified name.
@@ -124,10 +171,7 @@ public interface FirewallSupport extends AccessControlledService {
      * @return the unique ID for the newly created firewall
      * @throws CloudException an error occurred with the cloud provider while performing the operation
      * @throws InternalException an error occurred locally independent of any events in the cloud
-     */
-    
-    public @Nonnull String authorize(@Nonnull String firewallId, @Nullable String ingressFirewallId, @Nullable String ingressFirewallOwnerId, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException;
-    
+     */    
     public @Nonnull String create(@Nonnull String name, @Nonnull String description) throws InternalException, CloudException;
     
     /**
@@ -171,7 +215,9 @@ public interface FirewallSupport extends AccessControlledService {
     public @Nonnull String getProviderTermForFirewall(@Nonnull Locale locale);
     
     /**
-     * Provides the affirmative rules supported by the named firewall.
+     * Provides the affirmative rules supported by the named firewall ordered in order of precedence with the most
+     * important rule first. <em>Implementation note: natural sorting order for {@link FirewallRule} is low to
+     * high. If this cloud has 0 as a low priority, you should reverse the natural sort!</em>
      * @param firewallId the unique ID of the firewall being queried
      * @return all rules supported by the target firewall
      * @throws InternalException an error occurred locally independent of any events in the cloud
@@ -180,12 +226,30 @@ public interface FirewallSupport extends AccessControlledService {
     public @Nonnull Collection<FirewallRule> getRules(@Nonnull String firewallId) throws InternalException, CloudException;
 
     /**
+     * Indicates the degree to which authorizations expect precedence of rules to be established.
+     * @param inVlan whether or not you are checking for VLAN firewalls or regular ones
+     * @return the degree to which precedence is required
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+    public @Nonnull Requirement identifyPrecedenceRequirement(boolean inVlan) throws InternalException, CloudException;
+
+    /**
      * Identifies whether or not the current account is subscribed to firewall services in the current region.
      * @return true if the current account is subscribed to firewall services for the current region
      * @throws CloudException an error occurred with the cloud provider while determining subscription status
      * @throws InternalException an error occurred in the Dasein Cloud implementation while determining subscription status
      */
     public boolean isSubscribed() throws CloudException, InternalException;
+
+    /**
+     * Indicates whether the highest precedence comes from low numbers. If true, 0 is the highest precedence a rule
+     * can have. If false, 0 is the lowest precedence.
+     * @return true if 0 is the highest precedence for a rule
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+    public boolean isZeroPrecedenceHighest() throws InternalException, CloudException;
 
     /**
      * Lists all firewalls in the current provider context.
@@ -211,7 +275,35 @@ public interface FirewallSupport extends AccessControlledService {
      * @throws InternalException an error occurred locally independent of any events in the cloud
      * @throws CloudException an error occurred with the cloud provider while performing the operation
      */
-    public @Nonnull Iterable<DestinationType> listSupportedDestinationTypes(boolean inVlan) throws InternalException, CloudException;
+    public @Nonnull Iterable<RuleTargetType> listSupportedDestinationTypes(boolean inVlan) throws InternalException, CloudException;
+
+    /**
+     * Lists the supported traffic directions for rules behind this kind of firewall.
+     * @param inVlan whether or not you are interested in VLAN firewalls
+     * @return a list of supported directions
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+    public @Nonnull Iterable<Direction> listSupportedDirections(boolean inVlan) throws InternalException, CloudException;
+
+    /**
+     * Lists the types of permissions that one may authorize for a firewall rule.
+     * @param inVlan whether or not you are interested in VLAN firewalls or general ones
+     * @return a list of supported permissions
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+    public @Nonnull Iterable<Permission> listSupportedPermissions(boolean inVlan) throws InternalException, CloudException;
+
+    /**
+     * Describes what kinds of source endpoints may be named. A cloud must support at least one, but may support more
+     * than one.
+     * @param inVlan whether or not you are testing capabilities for VLAN firewalls
+     * @return a list of supported source endpoints
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+    public @Nonnull Iterable<RuleTargetType> listSupportedSourceTypes(boolean inVlan) throws InternalException, CloudException;
 
     /**
      * Revokes the uniquely identified firewall rule.
@@ -267,13 +359,13 @@ public interface FirewallSupport extends AccessControlledService {
      * @param permission ALLOW or DENY
      * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
      * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
-     * @param destination the target for traffic matching this rule
+     * @param target the target for traffic matching this rule
      * @param beginPort the initial port of the rule being removed
      * @param endPort the end port of the rule being removed
      * @throws InternalException an error occurred locally independent of any events in the cloud
      * @throws CloudException an error occurred with the cloud provider while performing the operation
      */
-    public void revoke(@Nonnull String firewallId, @Nonnull Direction direction, @Nonnull Permission permission, @Nonnull String source, @Nonnull Protocol protocol, @Nonnull RuleDestination destination, int beginPort, int endPort) throws CloudException, InternalException;
+    public void revoke(@Nonnull String firewallId, @Nonnull Direction direction, @Nonnull Permission permission, @Nonnull String source, @Nonnull Protocol protocol, @Nonnull RuleTarget target, int beginPort, int endPort) throws CloudException, InternalException;
 
     /**
      * Indicates whether firewalls of the specified type (VLAN or flat network) support rules over the direction specified.

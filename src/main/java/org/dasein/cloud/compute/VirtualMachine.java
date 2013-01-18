@@ -25,6 +25,8 @@ import java.util.concurrent.Callable;
 
 import org.dasein.cloud.Tag;
 import org.dasein.cloud.Taggable;
+import org.dasein.cloud.network.Networkable;
+import org.dasein.cloud.network.RawAddress;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,8 +38,10 @@ import javax.annotation.Nullable;
  * </p>
  * @author George Reese @ enStratus (http://www.enstratus.com)
  * @version 2012-07 Altered product -> productId to minimize chattiness of any polling using Dasein Cloud
+ * @version 2013.02 added Networkable interface (issue #24)
+ * @version 2013.04 added access to shell key IDs
  */
-public class VirtualMachine implements Taggable {
+public class VirtualMachine implements Networkable, Taggable {
     private Architecture          architecture;
     private boolean               clonable;
     private long                  creationTimestamp;
@@ -52,7 +56,7 @@ public class VirtualMachine implements Taggable {
     private boolean               persistent;
     private Platform              platform;
     private String                privateDnsAddress;
-    private String[]              privateIpAddresses;
+    private RawAddress[]          privateIpAddresses;
     private String                productId;
     private String                providerAssignedIpAddressId;
     private String                providerDataCenterId;
@@ -61,11 +65,14 @@ public class VirtualMachine implements Taggable {
     private String                providerOwnerId;
     private String                providerRamdiskImageId;
     private String                providerRegionId;
+    private String[]              providerShellKeyIds;
     private String                providerSubnetId;
     private String                providerVirtualMachineId;
     private String                providerVlanId;
+    private String                providerKeypairId;
+    private String[]              providerFirewallIds;
     private String                publicDnsAddress;
-    public String[]               publicIpAddresses;
+    private RawAddress[]          publicIpAddresses;
     private boolean               rebootable;
     private String                rootPassword;
     private String                rootUser;
@@ -276,12 +283,43 @@ public class VirtualMachine implements Taggable {
         this.privateDnsAddress = privateDnsAddress;
     }
 
-    public String[] getPrivateIpAddresses() {
-        return privateIpAddresses;
+    public @Nonnull RawAddress[] getPrivateAddresses() {
+        return (privateIpAddresses == null ? new RawAddress[0] : privateIpAddresses);
     }
 
+    /**
+     * @return a list of private IP address strings
+     * @deprecated Use {@link #getPrivateAddresses()}
+     */
+    @Deprecated
+    public String[] getPrivateIpAddresses() {
+        String[] addrs = new String[privateIpAddresses == null ? 0 : privateIpAddresses.length];
+
+        if( privateIpAddresses != null ) {
+            int i = 0;
+
+            for( RawAddress addr : privateIpAddresses ) {
+                addrs[i++] = addr.getIpAddress();
+            }
+        }
+        return addrs;
+    }
+
+    public void setPrivateAddresses(@Nonnull RawAddress ... addresses) {
+        privateIpAddresses = addresses;
+    }
+
+    /**
+     * @deprecated Use {@link #setPrivateAddresses(RawAddress...)}
+     */
+    @Deprecated
     public void setPrivateIpAddresses(String[] privateIpAddresses) {
-        this.privateIpAddresses = privateIpAddresses;
+        this.privateIpAddresses = new RawAddress[privateIpAddresses == null ? 0 : privateIpAddresses.length];
+        if( privateIpAddresses != null ) {
+            for( int i=0; i<this.privateIpAddresses.length; i++ ) {
+                this.privateIpAddresses[i] = new RawAddress(privateIpAddresses[i]);
+            }
+        }
     }
 
     public String getProviderAssignedIpAddressId() {
@@ -340,12 +378,40 @@ public class VirtualMachine implements Taggable {
         this.publicDnsAddress = publicDnsAddress;
     }
 
-    public String[] getPublicIpAddresses() {
+    public @Nonnull RawAddress[] getPublicAddresses() {
         return publicIpAddresses;
     }
 
+    /**
+     * @deprecated Use {@link #getPublicAddresses()}
+     */
+    @Deprecated
+    public String[] getPublicIpAddresses() {
+        String[] addrs = new String[publicIpAddresses == null ? 0 : publicIpAddresses.length];
+
+        if( publicIpAddresses != null ) {
+            for( int i=0; i<addrs.length; i++ ) {
+                addrs[i] = publicIpAddresses[i].getIpAddress();
+            }
+        }
+        return addrs;
+    }
+
+    public void setPublicAddresses(@Nonnull RawAddress ... addresses) {
+        publicIpAddresses = addresses;
+    }
+
+    /**
+     * @deprecated Use {@link #setPublicAddresses(RawAddress...)}
+     */
+    @Deprecated
     public void setPublicIpAddresses(String[] publicIpAddresses) {
-        this.publicIpAddresses = publicIpAddresses;
+        this.publicIpAddresses = new RawAddress[publicIpAddresses == null ? 0 : publicIpAddresses.length];
+        if( publicIpAddresses != null ) {
+            for( int i=0; i<this.publicIpAddresses.length; i++ ) {
+                this.publicIpAddresses[i] = new RawAddress(publicIpAddresses[i]);
+            }
+        }
     }
 
     public boolean isRebootable() {
@@ -423,6 +489,22 @@ public class VirtualMachine implements Taggable {
         return providerVlanId;
     }
 
+    public String getProviderKeypairId() {
+      return providerKeypairId;
+    }
+
+    public void setProviderKeypairId( String providerKeypairId ) {
+      this.providerKeypairId = providerKeypairId;
+    }
+
+    public String[] getProviderFirewallIds() {
+      return providerFirewallIds;
+    }
+
+    public void setProviderFirewallIds( String[] providerFirewallIds ) {
+      this.providerFirewallIds = providerFirewallIds;
+    }
+
     public @Nullable String getProviderKernelImageId() {
         return providerKernelImageId;
     }
@@ -437,5 +519,13 @@ public class VirtualMachine implements Taggable {
 
     public void setProviderRamdiskImageId(@Nullable String providerRamdiskImageId) {
         this.providerRamdiskImageId = providerRamdiskImageId;
+    }
+
+    public void setProviderShellKeyIds(@Nonnull String ... keyIds) {
+        this.providerShellKeyIds = keyIds;
+    }
+
+    public @Nonnull String[] getProviderShellKeyIds() {
+        return (providerShellKeyIds == null ? new String[0] : providerShellKeyIds);
     }
 }
