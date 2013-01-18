@@ -1,0 +1,103 @@
+<project name="dasein-cloud-core" basedir="." default="jar.core">
+
+	<property name="name" value="dasein-cloud-core" />
+	<property file="${user.home}/${name}.properties"/>
+	<property file="${user.home}/build.properties"/>
+	<property name="config.filename" value="${user.name}.properties"/>
+	<property file="${config.filename}"/>
+	<property file="build.properties"/>
+
+	<property name="project.base.dir" value="." />
+	<property name="src" value="${project.base.dir}/src/main/java" />
+	<property name="resources" value="${project.base.dir}/resources" />
+	<property name="test" value="${project.base.dir}/test/main/java" />
+	<property name="build" value="${project.base.dir}/build" />
+	<property name="classes" value="${build}/classes" />
+	<property name="jar.dir" value="${project.base.dir}/build/lib/" />
+	<property name="lib" value="${build}/lib" />
+	<property name="external" value="${build}/external" />
+	<property name="external.jars" value="${build}/external/lib" />
+	<property name="external.lib" value="${build}/external/lib" />
+	<property value="" name="jars.ok" />
+	<property name="hudson.url" value="jenkins.momentumsoftware.com:8080/" />
+
+    <property name="dist.suffix" value=""/>
+	<property name="toughresources" value="ToughResources${dist.suffix}"/>
+	<property name="toughresources.dir" value="${project.base.dir}/../${toughresources}"/>
+    <import file="${toughresources.dir}/common.build.xml" />
+
+	<target name="war.all"><!-- no op target due to common build --></target>
+
+	<target name="init">
+		<mkdir dir="${build}" />
+		<mkdir dir="${classes}" />
+		<mkdir dir="${lib}" />
+		<mkdir dir="${external}" />
+		<mkdir dir="${external.jars}" />
+		<mkdir dir="target/lib" />
+	</target>
+
+    <path id="project.classpath">
+        <pathelement location="${classes}"/>
+		<fileset dir="${external.jars}">
+			<include name="*.jar" />
+		</fileset>
+        <!-- include maven generated path. -->
+        <fileset dir="target/lib">
+            <include name="*.jar" />
+        </fileset>
+    </path>
+
+	<!-- special version of copy dependencies; core is the only project that doesn't depend on core. -->
+	<target name="copy-dependencies-hudson-core" description="Get the project from hudson" depends="init" unless="is.development" >
+		<property name="project.build.number" value="lastSuccessfulBuild" />
+		<get src="http://${hudson.url}/job/${toughresources}/${project.build.number}/artifact/build/lib/tough-resources.zip" dest="${external}/tough-resources.zip" />
+		<unzip dest="${external.jars}" src="${external}/tough-resources.zip"/>
+		<get src="http://${hudson.url}/job/${toughresources}/${project.build.number}/artifact/build/lib/tough-resources-config.zip" dest="${external}/tough-resources-config.zip" />
+	</target>
+
+	<!-- special version of copy dependencies; core is the only project that doesn't depend on core. -->
+	<target name="copy-dependencies-dev-core" depends="init" description="Locally get the ToughResources project" if="is.development">
+		<ant dir="${toughresources.dir}" target="main" inheritall="true" />
+		<copy toDir="${external}" file="${toughresources.dir}/build/lib/tough-resources.zip" failonerror="false" />
+		<unzip dest="${external.jars}" src="${external}/tough-resources.zip"/>
+		<copy toDir="${external}" file="${toughresources.dir}/build/lib/tough-resources-config.zip" failonerror="false" />
+	</target>
+
+	<target name="compile.src" depends="copy-dependencies-hudson-core,copy-dependencies-dev-core">
+		<property name="myclasspath" refid="project.classpath" />
+		<!-- Emit the property to the ant console -->
+		<echo message="Classpath = ${myclasspath}" />
+
+		<javac debug="on" memoryMaximumSize="256m" memoryInitialSize="256m" fork="true" destdir="${classes}" srcdir="${src}">
+			<compilerarg value="-Xlint:unchecked" />
+			<classpath refid="project.classpath" />
+		</javac>
+		<!--
+		<copy todir="${classes}" overwrite="true">
+			<fileset dir="${resources}">
+			</fileset>
+		</copy>
+		-->
+	</target>
+
+	<target name="jar.all" depends="jar.core" />
+
+	<target name="jar.core" depends="run.tests">
+		<copy toDir="${classes}/META-INF" failonerror="false">
+			<fileset dir="${resources}">
+				<include name="*.xml" />
+				<include name="*.wsdl" />
+				<include name="*.xsd" />
+			</fileset>
+		</copy>
+		<jar destfile="${lib}/${name}.jar">
+			<fileset excludes="**/Test*.class" dir="${classes}" />
+		</jar>
+	</target>
+
+	<target name="dist" depends="jar.core">
+	</target>
+
+
+</project>

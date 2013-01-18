@@ -21,6 +21,9 @@ package org.dasein.cloud.network;
 import java.util.Collection;
 import java.util.Locale;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import org.dasein.cloud.AccessControlledService;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
@@ -28,14 +31,12 @@ import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.identity.ServiceAction;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 /**
  * <p>
- * Operations on whatever concept the underlying cloud uses to regulate network traffic into a
- * server or group of servers.
+ * Operations on whatever concept the underlying cloud uses to regulate network
+ * traffic into a server or group of servers.
  * </p>
+ * 
  * @author George Reese @ enStratus (http://www.enstratus.com)
  * @version 2013.01 Added better permission support and firewall rule id support (Issue #14)
  * @since unknown
@@ -124,6 +125,9 @@ public interface FirewallSupport extends AccessControlledService {
      * @throws CloudException an error occurred with the cloud provider while performing the operation
      * @throws InternalException an error occurred locally independent of any events in the cloud
      */
+    
+    public @Nonnull String authorize(@Nonnull String firewallId, @Nullable String ingressFirewallId, @Nullable String ingressFirewallOwnerId, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException;
+    
     public @Nonnull String create(@Nonnull String name, @Nonnull String description) throws InternalException, CloudException;
     
     /**
@@ -289,4 +293,5 @@ public interface FirewallSupport extends AccessControlledService {
      * @throws InternalException a local error occurred while checking for support
      */
     public boolean supportsFirewallSources() throws CloudException, InternalException;
+
 }
